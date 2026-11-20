@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vy & Bé - Mini Quiz</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(160deg, #fff5f8 0%, #eef6ff 100%);
+      color: #1f2937;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* Lớp trái tim rơi nền & nụ hôn rơi khi trả lời đúng */
+    .hearts-layer,
+    .kiss-layer {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+
+    .hearts-layer {
+      z-index: 0;
+    }
+
+    .kiss-layer {
+      z-index: 20;
+    }
+
+    .falling-heart {
+      position: absolute;
+      top: -36px;
+      color: #ec4899;
+      user-select: none;
+      will-change: transform, opacity;
+      animation-name: heartFall;
+      animation-timing-function: linear;
+      animation-iteration-count: infinite;
+    }
+
+    @keyframes heartFall {
+      0% {
+        transform: translate3d(0, -24px, 0) rotate(0deg);
+        opacity: 0;
+      }
+      12% {
+        opacity: var(--heart-opacity, 0.55);
+      }
+      88% {
+        opacity: var(--heart-opacity, 0.55);
+      }
+      100% {
+        transform: translate3d(var(--drift-x, 28px), calc(100vh + 48px), 0) rotate(var(--spin, 25deg));
+        opacity: 0;
+      }
+    }
+
+    .falling-kiss {
+      position: absolute;
+      top: -42px;
+      user-select: none;
+      will-change: transform, opacity;
+      animation-name: kissDrop;
+      animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+      animation-fill-mode: forwards;
+    }
+
+    @keyframes kissDrop {
+      0% {
+        transform: translate3d(0, -30px, 0) scale(0.75) rotate(0deg);
+        opacity: 0;
+      }
+      15% {
+        opacity: 0.98;
+      }
+      85% {
+        opacity: 0.92;
+      }
+      100% {
+        transform: translate3d(var(--kiss-drift, 24px), calc(100vh + 54px), 0) scale(1.08) rotate(var(--kiss-spin, 22deg));
+        opacity: 0;
+      }
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 860px;
+      background: rgba(255, 255, 255, 0.96);
+      border-radius: 24px;
+      box-shadow: 0 16px 40px rgba(31, 41, 55, 0.08);
+      padding: 28px;
+    }
+
+    h1 {
+      font-size: 24px;
+      text-align: center;
+      margin-bottom: 8px;
+      color: #be185d;
+    }
+
+    .subtitle {
+      text-align: center;
+      font-size: 14px;
+      color: #6b7280;
+      margin-bottom: 24px;
+    }
+
+    .screen {
+      display: none;
+    }
+
+    .screen.active {
+      display: block;
+    }
+
+    .progress-bar {
+      font-size: 13px;
+      color: #6b7280;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .question-box {
+      background: #fdf2f8;
+      border: 1px solid #fbcfe8;
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+
+    .question-text {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 14px;
+    }
+
+    .options {
+      display: grid;
+      gap: 10px;
+    }
+
+    .option-btn {
+      text-align: left;
+      padding: 12px 16px;
+      border-radius: 12px;
+      border: 1.5px solid #e5e7eb;
+      background: #ffffff;
+      font-size: 15px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .option-btn:hover:not(:disabled) {
+      border-color: #ec4899;
+      background: #fff1f7;
+    }
+
+    .option-btn.selected {
+      border-color: #db2777;
+      background: #fce7f3;
+      font-weight: 600;
+    }
+
+    /* Đáp án đúng chuyển màu xanh dịu */
+    .option-btn.correct {
+      border-color: #10b981;
+      background: #d1fae5;
+      color: #065f46;
+      font-weight: 600;
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.14);
+    }
+
+    .option-btn.wrong {
+      border-color: #fda4af;
+      background: #fff1f2;
+      color: #9f1239;
+    }
+
+    .option-btn:disabled {
+      cursor: default;
+    }
+
+    .feedback-note {
+      margin-top: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      min-height: 20px;
+    }
+
+    .feedback-note.is-correct {
+      color: #047857;
+    }
+
+    .feedback-note.is-wrong {
+      color: #be123c;
+    }
+
+    .actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-top: 16px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      padding: 11px 18px;
+      border-radius: 12px;
+      border: none;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s ease, transform 0.15s ease;
+    }
+
+    .btn:hover:not(:disabled) {
+      opacity: 0.92;
+      transform: translateY(-1px);
+    }
+
+    .btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-primary {
+      background: #ec4899;
+      color: #ffffff;
+    }
+
+    .btn-secondary {
+      background: #f3f4f6;
+      color: #374151;
+    }
+
+    .result-box {
+      text-align: center;
+      padding: 20px;
+      border-radius: 16px;
+      background: #f0f9ff;
+      border: 1px solid #bae6fd;
+      margin-bottom: 20px;
+    }
+
+    .result-score {
+      font-size: 28px;
+      font-weight: 700;
+      color: #0369a1;
+      margin: 8px 0;
+    }
+
+    /* Thư tay trang trí đẹp hơn */
+    .letter-box {
+      position: relative;
+      background: linear-gradient(180deg, #fffdfd 0%, #fff8fa 100%);
+      border: 1.5px solid #fbcfe8;
+      border-radius: 22px;
+      padding: 28px 26px;
+      margin-bottom: 22px;
+      line-height: 1.8;
+      box-shadow:
+        0 12px 28px rgba(236, 72, 153, 0.08),
+        inset 0 0 0 5px #fffdf9,
+        inset 0 0 0 6.5px #f9a8d4;
+    }
+
+    .letter-ribbon {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      font-size: 13px;
+      letter-spacing: 2px;
+      color: #ec4899;
+    }
+
+    .letter-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: #be185d;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px dashed #f9a8d4;
+      text-align: center;
+    }
+
+    .letter-content p {
+      margin-bottom: 13px;
+      font-size: 15px;
+      color: #374151;
+      text-align: center;
+    }
+
+    .letter-content p:first-child {
+      font-weight: 600;
+      color: #9d174d;
+    }
+
+    .letter-sign {
+      margin-top: 18px;
+      padding-top: 10px;
+      font-weight: 600;
+      font-size: 15.5px;
+      color: #9d174d;
+      text-align: right;
+      font-style: italic;
+    }
+
+    /* Chặng cuối: Máy bay & Ntran / Kvy trên hành tinh trái tim */
+    .journey-wrap {
+      margin-top: 16px;
+    }
+
+    .journey-stage {
+      width: 100%;
+      overflow: hidden;
+      border-radius: 20px;
+      background: #eff6ff;
+      border: 1px solid #dbeafe;
+    }
+
+    #flight-svg {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    #plane-btn {
+      cursor: pointer;
+    }
+
+    .flight-hint {
+      margin-top: 10px;
+      font-size: 14px;
+      color: #4b5563;
+      text-align: center;
+    }
+
+    .arrival-message {
+      margin-top: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      color: #be185d;
+      text-align: center;
+      min-height: 22px;
+    }
+  </style>
+</head>
+<body>
+  <div id="hearts-layer" class="hearts-layer" aria-hidden="true"></div>
+  <div id="kiss-layer" class="kiss-layer" aria-hidden="true"></div>
+
+  <main class="container">
+    <h1>Vy & Bé - Mini Quiz</h1>
+    <p class="subtitle">Trả lời đủ 10 câu hỏi để mở thư tay và chuyến bay tới Kvy nhé!</p>
+
+    <!-- Màn 1: Trắc nghiệm 10 câu -->
+    <section id="quiz-screen" class="screen active">
+      <div class="progress-bar">
+        <span id="question-counter">Câu 1 / 10</span>
+        <span id="score-counter">Điểm: 0</span>
+      </div>
+
+      <div class="question-box">
+        <div id="question-text" class="question-text"></div>
+        <div id="options-list" class="options"></div>
+        <div id="feedback-note" class="feedback-note"></div>
+      </div>
+
+      <div class="actions">
+        <button id="next-btn" class="btn btn-primary" type="button" disabled>Câu tiếp theo</button>
+        <button id="open-journey-btn" class="btn btn-secondary" type="button">Xem thư tay & chuyến bay</button>
+      </div>
+    </section>
+
+    <!-- Màn 2: Tổng kết + Thư tay + Máy bay -->
+    <section id="journey-screen" class="screen">
+      <div class="result-box">
+        <div>Kết quả của bé</div>
+        <div id="final-score" class="result-score">0 / 10</div>
+        <p id="result-comment"></p>
+      </div>
+
+      <!-- Khung thư tay -->
+      <article id="love-letter" class="letter-box">
+        <div class="letter-ribbon" aria-hidden="true">♡ · ✿ · ♡</div>
+        <div class="letter-title">Bức thư dành cho công chúa</div>
+        <div class="letter-content">
+          <p>chào bạn nhỏ của Vy!</p>
+          <p>bé có vui khi thấy món quà này không hả hihihi Vy thươngg embee nhắm oaa lần đầu tiên tui làm chyn nì luônn oaa mắc cỡ quá đii à</p>
+          <p>Cảm ơn em vì đã xuất hiện và đồng hành cùng Vy trong khoảng thời gian vừa qua. Vy biết đôi lúc mình không dễ chiều, hay suy nghĩ nhiều, có những lúc giận dỗi hoặc không biết cách thể hiện cảm xúc. Nhưng Vy luôn trân trọng mối quan hệ này và những gì cả hai đang có.</p>
+          <p>Vy không mong tình yêu của chúng ta lúc nào cũng vui vẻ hay không có cãi vã. Chỉ mong khi có vấn đề, cả hai có thể bình tĩnh nói chuyện, hiểu nhau hơn thay vì im lặng hay buông bỏ.</p>
+          <p>Vy cũng không biết tương lai sẽ như thế nào, nhưng ở hiện tại, Vy vẫn muốn có em trong những dự định sắp tới. Muốn cùng em trải nghiệm nhiều điều mới, đi nhiều nơi, tạo thêm nhiều kỷ niệm và cùng nhau trưởng thành.</p>
+        </div>
+        <div class="letter-sign">— Của bé. Khánh Vy ♡</div>
+      </article>
+
+      <!-- Khung máy bay & Ntran / Kvy trên hành tinh trái tim -->
+      <div id="journey-scene" class="journey-wrap">
+        <div class="journey-stage">
+          <svg id="flight-svg" viewBox="0 0 800 340" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#e0f2fe" />
+                <stop offset="100%" stop-color="#fdf2f8" />
+              </linearGradient>
+              <linearGradient id="routeGrad" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stop-color="#ec4899" />
+                <stop offset="100%" stop-color="#3b82f6" />
+              </linearGradient>
+              <radialGradient id="ntranHeartGrad" cx="35%" cy="30%" r="70%">
+                <stop offset="0%" stop-color="#ff9ebb" />
+                <stop offset="65%" stop-color="#f43f5e" />
+                <stop offset="100%" stop-color="#be123c" />
+              </radialGradient>
+              <radialGradient id="kvyHeartGrad" cx="35%" cy="30%" r="70%">
+                <stop offset="0%" stop-color="#93c5fd" />
+                <stop offset="60%" stop-color="#ec4899" />
+                <stop offset="100%" stop-color="#be185d" />
+              </radialGradient>
+            </defs>
+
+            <rect x="0" y="0" width="800" height="340" rx="20" fill="url(#skyGrad)" />
+
+            <path
+              id="flight-path"
+              d="M 115 235 Q 400 45 685 235"
+              fill="none"
+              stroke="url(#routeGrad)"
+              stroke-width="3.5"
+              stroke-dasharray="9 9"
+              stroke-linecap="round"
+              opacity="0.85"
+            />
+
+            <!-- Ntran bắt đầu ở (115, 235) đứng trên hành tinh hình trái tim -->
+            <g id="ntran-group" transform="translate(115, 235)">
+              <g transform="translate(0, 18)">
+                <ellipse cx="0" cy="4" rx="46" ry="12" fill="none" stroke="#fda4af" stroke-width="1.5" stroke-dasharray="4 4" opacity="0.85" />
+                <path
+                  d="M 0 28 C -24 12 -38 -4 -30 -18 C -23 -29 -9 -27 0 -17 C 9 -27 23 -29 30 -18 C 38 -4 24 12 0 28 Z"
+                  fill="url(#ntranHeartGrad)"
+                  stroke="#ffe4e6"
+                  stroke-width="2"
+                />
+                <ellipse cx="-14" cy="-14" rx="6" ry="3.5" transform="rotate(-25 -14 -14)" fill="#ffffff" opacity="0.45" />
+              </g>
+
+              <g transform="translate(0, -10)">
+                <circle cx="0" cy="-46" r="17" fill="#ffd6e0" stroke="#e11d48" stroke-width="2" />
+                <circle cx="-5.5" cy="-47" r="2" fill="#1f2937" />
+                <circle cx="5.5" cy="-47" r="2" fill="#1f2937" />
+                <path d="M -5 -40 Q 0 -35 5 -40" fill="none" stroke="#be123c" stroke-width="2" />
+                <rect x="-14" y="-26" width="28" height="28" rx="8" fill="#fb7185" />
+              </g>
+
+              <rect x="-34" y="48" width="68" height="24" rx="12" fill="#ffffff" stroke="#fda4af" />
+              <text x="0" y="65" text-anchor="middle" font-size="13" font-weight="600" fill="#9f1239">Ntran</text>
+            </g>
+
+            <!-- Kvy đứng cố định ở (685, 235) trên hành tinh hình trái tim -->
+            <g id="kvy-group" transform="translate(685, 235)">
+              <g transform="translate(0, 18)">
+                <ellipse cx="0" cy="4" rx="46" ry="12" fill="none" stroke="#f9a8d4" stroke-width="1.5" stroke-dasharray="4 4" opacity="0.85" />
+                <path
+                  d="M 0 28 C -24 12 -38 -4 -30 -18 C -23 -29 -9 -27 0 -17 C 9 -27 23 -29 30 -18 C 38 -4 24 12 0 28 Z"
+                  fill="url(#kvyHeartGrad)"
+                  stroke="#fce7f3"
+                  stroke-width="2"
+                />
+                <ellipse cx="-14" cy="-14" rx="6" ry="3.5" transform="rotate(-25 -14 -14)" fill="#ffffff" opacity="0.45" />
+              </g>
+
+              <g transform="translate(0, -10)">
+                <circle cx="0" cy="-46" r="17" fill="#dbeafe" stroke="#2563eb" stroke-width="2" />
+                <circle cx="-5.5" cy="-47" r="2" fill="#1f2937" />
+                <circle cx="5.5" cy="-47" r="2" fill="#1f2937" />
+                <path d="M -5 -40 Q 0 -35 5 -40" fill="none" stroke="#1d4ed8" stroke-width="2" />
+                <rect x="-14" y="-26" width="28" height="28" rx="8" fill="#60a5fa" />
+              </g>
+
+              <rect x="-34" y="48" width="68" height="24" rx="12" fill="#ffffff" stroke="#93c5fd" />
+              <text x="0" y="65" text-anchor="middle" font-size="13" font-weight="600" fill="#1e40af">Kvy</text>
+            </g>
+
+            <!-- Máy bay -->
+            <g id="plane-btn" transform="translate(115, 235)">
+              <g id="plane-rotator" transform="rotate(0)">
+                <circle class="plane-pulse" cx="0" cy="0" r="22" fill="#ec4899" opacity="0.16" />
+                <polygon points="18,0 -12,-11 -6,0 -12,11" fill="#ec4899" stroke="#ffffff" stroke-width="1.5" />
+              </g>
+            </g>
+          </svg>
+        </div>
+
+        <p id="flight-hint" class="flight-hint">Bấm vào máy bay để bắt đầu chuyến bay tới Kvy!</p>
+        <div id="arrival-message" class="arrival-message"></div>
+
+        <div class="actions">
+          <button id="replay-flight-btn" class="btn btn-secondary" type="button">Bay lại lần nữa</button>
+          <button id="replay-btn" class="btn btn-primary" type="button">Làm lại từ đầu</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // Hiệu ứng trái tim rơi nền nhẹ nhàng
+    (function () {
+      const layer = document.getElementById("hearts-layer");
+      if (!layer) return;
+
+      const glyphs = ["♡", "♥", "♡"];
+      const colors = ["#f472b6", "#ec4899", "#fb7185", "#f9a8d4"];
+      const count = 18;
+
+      for (let i = 0; i < count; i += 1) {
+        const heart = document.createElement("span");
+        heart.className = "falling-heart";
+        heart.textContent = glyphs[i % glyphs.length];
+
+        const leftPct = ((i + 0.5) / count) * 100 + (Math.random() * 4 - 2);
+        const sizePx = 14 + Math.random() * 12;
+        const durationSec = 7 + Math.random() * 6;
+        const delaySec = -(Math.random() * durationSec);
+        const driftPx = (Math.random() * 70 - 35).toFixed(0) + "px";
+        const spinDeg = (Math.random() * 50 - 25).toFixed(0) + "deg";
+        const opacityVal = (0.32 + Math.random() * 0.33).toFixed(2);
+
+        heart.style.left = `${Math.max(2, Math.min(97, leftPct))}%`;
+        heart.style.fontSize = `${sizePx.toFixed(0)}px`;
+        heart.style.color = colors[i % colors.length];
+        heart.style.animationDuration = `${durationSec.toFixed(1)}s`;
+        heart.style.animationDelay = `${delaySec.toFixed(1)}s`;
+        heart.style.setProperty("--drift-x", driftPx);
+        heart.style.setProperty("--spin", spinDeg);
+        heart.style.setProperty("--heart-opacity", opacityVal);
+
+        layer.appendChild(heart);
+      }
+    })();
+
+    // Hiệu ứng icon nụ hôn rơi xuống khi trả lời đúng
+    function dropKissesOnCorrect() {
+      const kissLayer = document.getElementById("kiss-layer");
+      if (!kissLayer) return;
+
+      const totalKisses = 14;
+      for (let i = 0; i < totalKisses; i += 1) {
+        const kiss = document.createElement("span");
+        kiss.className = "falling-kiss";
+        kiss.textContent = "💋";
+
+        const leftPct = 6 + Math.random() * 88;
+        const sizePx = 20 + Math.random() * 14;
+        const durationSec = 1.6 + Math.random() * 1.1;
+        const delayMs = i * 75 + Math.random() * 120;
+        const driftPx = (Math.random() * 80 - 40).toFixed(0) + "px";
+        const spinDeg = (Math.random() * 60 - 30).toFixed(0) + "deg";
+
+        kiss.style.left = `${leftPct.toFixed(1)}%`;
+        kiss.style.fontSize = `${sizePx.toFixed(0)}px`;
+        kiss.style.animationDuration = `${durationSec.toFixed(2)}s`;
+        kiss.style.animationDelay = `${delayMs.toFixed(0)}ms`;
+        kiss.style.setProperty("--kiss-drift", driftPx);
+        kiss.style.setProperty("--kiss-spin", spinDeg);
+
+        kissLayer.appendChild(kiss);
+
+        setTimeout(() => {
+          kiss.remove();
+        }, durationSec * 1000 + delayMs + 200);
+      }
+    }
+
+    const questions = [
+      {
+        question: "Câu 1: Ngày yêu nhau của tminh là ngày",
+        options: ["A: 22/12/2024", "B: 22/12/2026", "C: 22/12/2025", "D: 21/12/2025"],
+        answer: 2
+      },
+      {
+        question: "Câu 2: Bé thích điều gì nhất ở Vy?",
+        options: ["A. Giọng nói và cách quan tâm", "B. Những lúc nhõng nhẽo đáng yêu", "C. Sự chân thành của Vy", "D. Tất cả"],
+        answer: 3
+      },
+      {
+        question: "Câu 3: Vy thường giận bé vì điều gì nhất?",
+        options: ["A. Trả lời tin nhắn chậm", "B. Không quan tâm", "C. Hay quên lời hứa", "D. Không tinh tế"],
+        answer: 2
+      },
+      {
+        question: "Câu 4: Khi Vy nói \"em đói\", bé nghĩ em muốn ăn gì?",
+        options: ["A. Muốn ăn Mỳ Cay", "B. Muốn ăn Phở", "C. Muốn ăn Cơm", "D. Muốn ăn KonJac"],
+        answer: 0
+      },
+      {
+        question: "Câu 5: Điều Vy hay nói nhất với em là gì?",
+        options: ["A. Vy nhớ Ntrann", "B. Trân đang làm gì đấy?", "C. chuii giận mí người roiii", "D. đghecccccc"],
+        answer: 0
+      },
+      {
+        question: "Câu 6: Khi Vy giận, dấu hiệu đầu tiên là gì?",
+        options: ["A. Ít nói hơn", "B. Sao cũng được", "C. Kệ tao", "D. Nói rất nhiều"],
+        answer: 1
+      },
+      {
+        question: "Câu 7: Vy thường phản ứng thế nào khi được khen?",
+        options: ["A. ngại", "B. Giả vờ không quan tâm", "C. tao biếtt thừa", "D. Aii hỏi"],
+        answer: 2
+      },
+      {
+        question: "Câu 8: Nếu được chọn một chuyến đi cùng em, Vy muốn đi đâu?",
+        options: ["A. Đà Lạt", "B. Đà Nẵng", "C. Hàn Quốc", "D. Một nơi riêng mà em từng kể"],
+        answer: 2
+      },
+      {
+        question: "Câu 9: Khánh Vy sinh ngày nào?",
+        options: ["A. 23/4/2006", "B. 23/6/2005", "C. 23/6/2006", "D. 26/3/2006"],
+        answer: 2
+      },
+      {
+        question: "Câu 10: Nếu một ngày em có tất cả mọi thứ trong tay, nhưng lại không còn Vy bên cạnh, em có nghĩ mình vẫn là người hạnh phúc không?",
+        options: [
+          "A. Có, vì em vẫn còn rất nhiều thứ khác.",
+          "B. Không, vì thiếu Vy thì mọi thứ đều không trọn vẹn.",
+          "C. Em sẽ tìm mọi cách để có Vy trong cuộc đời mình.",
+          "D. Em không cần có tất cả, Em chỉ muốn cùng Vy có một cuộc đời bình yên."
+        ],
+        validAnswers: [1, 2, 3]
+      }
+    ];
+
+    const quizScreen = document.getElementById("quiz-screen");
+    const journeyScreen = document.getElementById("journey-screen");
+    const questionCounterEl = document.getElementById("question-counter");
+    const scoreCounterEl = document.getElementById("score-counter");
+    const questionTextEl = document.getElementById("question-text");
+    const optionsListEl = document.getElementById("options-list");
+    const feedbackNoteEl = document.getElementById("feedback-note");
+    const nextBtn = document.getElementById("next-btn");
+    const openJourneyBtn = document.getElementById("open-journey-btn");
+    const finalScoreEl = document.getElementById("final-score");
+    const resultCommentEl = document.getElementById("result-comment");
+    const replayBtn = document.getElementById("replay-btn");
+
+    let currentIndex = 0;
+    let score = 0;
+    let hasAnswered = false;
+
+    function isAnswerCorrect(q, optIdx) {
+      if (Array.isArray(q.validAnswers)) {
+        return q.validAnswers.includes(optIdx);
+      }
+      return optIdx === q.answer;
+    }
+
+    function switchScreen(targetScreen) {
+      quizScreen.classList.remove("active");
+      journeyScreen.classList.remove("active");
+      targetScreen.classList.add("active");
+    }
+
+    function renderQuestion() {
+      const currentQ = questions[currentIndex];
+      hasAnswered = false;
+      nextBtn.disabled = true;
+      nextBtn.textContent = currentIndex === questions.length - 1 ? "Hoàn thành" : "Câu tiếp theo";
+
+      questionCounterEl.textContent = `Câu ${currentIndex + 1} / ${questions.length}`;
+      scoreCounterEl.textContent = `Điểm: ${score}`;
+      questionTextEl.textContent = currentQ.question;
+      optionsListEl.innerHTML = "";
+      feedbackNoteEl.textContent = "";
+      feedbackNoteEl.className = "feedback-note";
+
+      const allButtons = [];
+
+      currentQ.options.forEach((optText, idx) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "option-btn";
+        btn.textContent = optText;
+
+        btn.addEventListener("click", () => {
+          if (hasAnswered) return;
+          hasAnswered = true;
+
+          const right = isAnswerCorrect(currentQ, idx);
+
+          allButtons.forEach((el, bIdx) => {
+            el.disabled = true;
+            if (isAnswerCorrect(currentQ, bIdx)) {
+              el.classList.add("correct");
+            }
+          });
+
+          if (right) {
+            score += 1;
+            scoreCounterEl.textContent = `Điểm: ${score}`;
+            feedbackNoteEl.textContent = "Chuẩn luôn! Nhận ngay mưa nụ hôn nè 💋";
+            feedbackNoteEl.classList.add("is-correct");
+            dropKissesOnCorrect();
+          } else {
+            btn.classList.add("wrong");
+            feedbackNoteEl.textContent = "Chưa đúng mất rồi, đáp án đúng đã được tô xanh nhé!";
+            feedbackNoteEl.classList.add("is-wrong");
+          }
+
+          nextBtn.disabled = false;
+        });
+
+        allButtons.push(btn);
+        optionsListEl.appendChild(btn);
+      });
+    }
+
+    function openJourney() {
+      finalScoreEl.textContent = `${score} / ${questions.length}`;
+      resultCommentEl.textContent =
+        score >= 8
+          ? "Xuất sắc luôn! Đọc thư tay rồi bấm máy bay gặp Kvy nhé!"
+          : "Xong 10 câu rồi nè, đọc thư tay và bấm máy bay tới bên Kvy thôi!";
+      switchScreen(journeyScreen);
+    }
+
+    nextBtn.addEventListener("click", () => {
+      if (!hasAnswered) return;
+      currentIndex += 1;
+      if (currentIndex < questions.length) {
+        renderQuestion();
+      } else {
+        openJourney();
+      }
+    });
+
+    openJourneyBtn.addEventListener("click", openJourney);
+
+    // Khối điều khiển máy bay & Ntran
+    (function () {
+      const pathEl = document.getElementById("flight-path");
+      const planeEl = document.getElementById("plane-btn");
+      const rotatorEl = document.getElementById("plane-rotator");
+      const hintEl = document.getElementById("flight-hint");
+      const msgEl = document.getElementById("arrival-message");
+      const ntranEl = document.getElementById("ntran-group");
+      const replayFlightBtn = document.getElementById("replay-flight-btn");
+
+      if (!pathEl || !planeEl || !rotatorEl) return;
+
+      const totalLen = pathEl.getTotalLength();
+      const duration = 1800;
+      let isFlying = false;
+      let animId = null;
+
+      function moveNtranToKvy() {
+        if (!ntranEl) return;
+        ntranEl.style.transition = "transform 0.7s ease";
+        ntranEl.setAttribute("transform", "translate(600, 235)");
+      }
+
+      function resetNtranPos() {
+        if (!ntranEl) return;
+        ntranEl.style.transition = "transform 0.5s ease";
+        ntranEl.setAttribute("transform", "translate(115, 235)");
+      }
+
+      function placeAt(progress) {
+        const clamped = Math.max(0, Math.min(1, progress));
+        const dist = clamped * totalLen;
+        const pt = pathEl.getPointAtLength(dist);
+        const delta = 2;
+        const p1 = pathEl.getPointAtLength(Math.max(0, dist - delta));
+        const p2 = pathEl.getPointAtLength(Math.min(totalLen, dist + delta));
+        const angleDeg = (Math.atan2(p2.y - p1.y, p2.x - p1.x) * 180) / Math.PI;
+
+        planeEl.setAttribute("transform", `translate(${pt.x}, ${pt.y})`);
+        rotatorEl.setAttribute("transform", `rotate(${angleDeg})`);
+      }
+
+      function startFlight() {
+        if (isFlying) return;
+        isFlying = true;
+        msgEl.textContent = "";
+        hintEl.textContent = "Máy bay đang bay tới Kvy...";
+
+        const startTime = performance.now();
+
+        function step(now) {
+          const elapsed = now - startTime;
+          const progress = Math.min(1, elapsed / duration);
+          placeAt(progress);
+
+          if (progress < 1) {
+            animId = requestAnimationFrame(step);
+          } else {
+            isFlying = false;
+            hintEl.textContent = "Đã hạ cánh an toàn!";
+            msgEl.textContent = "Ntran đã tới đứng kế Kvy rồi nè!";
+            moveNtranToKvy();
+          }
+        }
+
+        animId = requestAnimationFrame(step);
+      }
+
+      function resetFlight() {
+        if (animId) {
+          cancelAnimationFrame(animId);
+          animId = null;
+        }
+        isFlying = false;
+        placeAt(0);
+        resetNtranPos();
+        msgEl.textContent = "";
+        hintEl.textContent = "Bấm vào máy bay để bắt đầu chuyến bay tới Kvy!";
+      }
+
+      planeEl.addEventListener("click", startFlight);
+      if (replayFlightBtn) {
+        replayFlightBtn.addEventListener("click", resetFlight);
+      }
+
+      if (replayBtn) {
+        replayBtn.addEventListener("click", () => {
+          resetFlight();
+          currentIndex = 0;
+          score = 0;
+          switchScreen(quizScreen);
+          renderQuestion();
+        });
+      }
+
+      placeAt(0);
+    })();
+
+    renderQuestion();
+  </script>
+</body>
+</html>
